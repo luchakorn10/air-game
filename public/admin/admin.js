@@ -552,6 +552,11 @@ function wildlifeList() {
         <div class="wl cat-${cat} ${it.active ? '' : 'off'}" data-id="${it.id}">
           <div class="pic">${visual(it)}<span class="fld ${it.on_field ? 'in' : 'out'}">${it.on_field ? 'ในสนาม' : 'ไม่อยู่ในสนาม'}</span><span class="size-tag">${SIZE_LABEL[it.size] || it.size}</span></div>
           <b>${esc(it.title)}</b><small>${esc(it.hint)}</small>
+          <div class="wl-acts">
+            <button type="button" class="btn ghost sm" data-act="edit">✏️ แก้ไข</button>
+            <button type="button" class="btn ghost sm" data-act="toggle" title="${it.active ? 'ซ่อนจากรายงาน' : 'แสดงในรายงาน'}">${it.active ? '🙈' : '👁'}</button>
+            <button type="button" class="btn danger sm" data-act="del" title="ลบการ์ด">🗑</button>
+          </div>
         </div>`).join('') || '<div class="help">—</div>'}</div>`;
   }).join('');
 }
@@ -604,6 +609,14 @@ function editItem(it) {
   $('itemDlg').showModal();
 }
 document.querySelectorAll('#itemDlg [data-close]').forEach(b => (b.onclick = () => $('itemDlg').close()));
+$('itemDel').onclick = async () => {
+  const it = editing, g = S.g;
+  $('itemDlg').close();
+  if (!(await ask({ icon: '🗑️', tone: 'danger', title: `ลบ “${it.title}”?`, message: g.mode === 'wildlife' ? 'การ์ดนี้จะหายจากรายงานของผู้เรียน' : 'QR ของรายการนี้จะใช้ไม่ได้อีก', ok: 'ลบ' }))) return $('itemDlg').showModal();
+  await api('admin/items/' + it.id, { method: 'DELETE' });
+  toast('ลบแล้ว');
+  await reloadGame(); loadGames();
+};
 
 $('itemForm').onsubmit = async e => {
   e.preventDefault();

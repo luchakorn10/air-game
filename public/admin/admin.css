@@ -344,3 +344,7 @@ table.t td b { white-space: nowrap; }
   .room-banner.compact .acts .btn { padding: 6px 8px; font-size: 13px; }
   .banner .acts .btn { line-height: 1.2; }
 }
+.wl-acts { display: flex; gap: 6px; margin-top: auto; padding-top: 6px; }
+.wl-acts .btn.sm { padding: 5px 9px; }
+.wl-acts .btn:first-child { flex: 1; justify-content: center; }
+.wl.off .wl-acts { opacity: 1; }
