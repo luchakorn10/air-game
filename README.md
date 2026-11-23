@@ -27,7 +27,7 @@ Web App สำหรับกิจกรรมโดรน 5 เกม · โ�
 | พิมพ์บัตรกลุ่ม / QR / การ์ด | `/admin/cards?room=…`, `/admin/print?game=…` | ครู |
 
 **ใช้อะไรทำ:** HTML/CSS/JS ล้วน ไม่ต้อง build + Cloudflare Pages Functions (API) + D1 (ฐานข้อมูล) + KV (เก็บรูป)
-ภาพการ์ด/คำใบ้ใช้ [Twemoji](https://github.com/jdecked/twemoji) (กราฟิก CC-BY 4.0) · รายชื่อสัตว์ป่าสงวนอ้างอิง พ.ร.บ.สงวนและคุ้มครองสัตว์ป่า พ.ศ. 2562
+ภาพการ์ด/คำใบ้ใช้ [Twemoji](https://github.com/jdecked/twemoji) (กราฟิก CC-BY 4.0) · กล้องสแกน QR ในหน้าเว็บใช้ [jsQR](https://github.com/cozmo/jsQR) (Apache-2.0) · รายชื่อสัตว์ป่าสงวนอ้างอิง พ.ร.บ.สงวนและคุ้มครองสัตว์ป่า พ.ศ. 2562
 
 ---|---|---|
 | หน้าแรก | `/` | รวมทุกเกม |

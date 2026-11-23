@@ -273,3 +273,74 @@ dialog { animation: pop .2s cubic-bezier(.2,.9,.3,1.2); }
 .stepper.big input { width: 80px; font-size: 22px; padding: 6px; }
 .stepper.big .btn { width: 42px; height: 42px; justify-content: center; font-size: 22px; padding: 0; }
 .stepper input::-webkit-inner-spin-button { -webkit-appearance: none; }
+
+/* ===== v5: มือถือ ===== */
+.menu-btn { display: none; width: 40px; height: 40px; border-radius: 12px; border: 0; background: rgba(255,255,255,.14); color: #fff; font-size: 20px; cursor: pointer; flex: none; }
+.side-backdrop { display: none; }
+.show-sm { display: none; }
+@media (max-width: 860px) {
+  .menu-btn { display: grid; place-items: center; }
+  .hide-sm { display: none !important; }
+  .show-sm { display: block; color: var(--muted); font-size: 12px; margin-top: 2px; }
+  .admin-top .wrap { gap: 10px; padding: 0 12px; }
+  .admin-top .brand span { display: none; }
+  .shell { display: block; }
+  .side { position: fixed !important; top: 60px; left: 0; bottom: 0; height: auto !important; width: min(300px, 86vw); z-index: 60;
+    transform: translateX(-102%); transition: transform .22s ease; box-shadow: 10px 0 30px rgba(0,0,0,.2); }
+  .menu-open .side { transform: none; }
+  .side-backdrop { position: fixed; inset: 60px 0 0 0; background: rgba(8,20,50,.45); z-index: 55; }
+  .menu-open .side-backdrop { display: block; }
+  .main { padding: 14px 12px 50px; }
+  .banner { padding: 16px; border-radius: 20px; gap: 12px; }
+  .banner h1 { font-size: 22px; }
+  .banner .thumb { width: 84px; }
+  .banner .acts { width: 100%; }
+  .banner .acts .btn { flex: 1; justify-content: center; }
+  .room-banner .big-code { font-size: 28px; padding: 6px 12px; letter-spacing: 4px; }
+  .kpis { grid-template-columns: 1fr 1fr; gap: 10px; }
+  .kpi { padding: 12px 14px; }
+  .kpi b { font-size: 24px; }
+  .card { padding: 16px 14px; border-radius: 18px; }
+  .card h3 { flex-wrap: wrap; }
+  .grid2 { grid-template-columns: 1fr !important; }
+  .room-card { flex-wrap: wrap; gap: 12px; padding: 14px; }
+  .room-card .rc-code { font-size: 18px; padding: 8px 10px; }
+  .room-card .rc-acts { width: 100%; }
+  .room-card .rc-acts .btn:first-child { flex: 1; justify-content: center; }
+  .group-grid { grid-template-columns: 1fr 1fr; gap: 8px; }
+  .gc-acts .btn.sm { padding: 5px 7px; font-size: 13px; }
+  .sess-head { padding: 14px; gap: 10px; border-left-width: 6px; }
+  .sess-head .sh-t b { font-size: 20px; }
+  .sess-head .clock { font-size: 44px; }
+  .sess-head .rc.btns { width: 100%; }
+  .sess-head .rc.btns .btn { flex: 1; justify-content: center; }
+  .flow { margin-top: 0 !important; }
+  table.t { font-size: 14px; }
+  table.t th, table.t td { padding: 8px 6px; }
+  table.t .rk { width: 34px; font-size: 16px; }
+  .stepper input { width: 46px; font-size: 15px; }
+  .stepper .btn.sm { padding: 4px 8px; }
+  .stepper.big input { width: 56px; font-size: 20px; }
+  .stepper.big .btn { width: 40px; height: 40px; }
+  .toolbar .searchbox { width: 100% !important; }
+  .item-row { gap: 10px; padding: 10px; }
+  .tabs { width: 100%; }
+  .tabs button { flex: 1; padding: 8px 8px; font-size: 14px; }
+  dialog .db { padding: 14px; }
+  .visual-pick { grid-template-columns: 1fr; }
+  .visual-pick .prev { width: 100px; height: 100px; }
+}
+@media (max-width: 420px) {
+  .group-grid { grid-template-columns: 1fr; }
+  .kpi small { font-size: 12px; }
+}
+table.t td b { white-space: nowrap; }
+@media (max-width: 860px) {
+  .room-banner.compact { padding: 12px 14px; }
+  .room-banner.compact .meta, .room-banner.compact .big-code small { display: none; }
+  .room-banner.compact .big-code { font-size: 20px; padding: 4px 10px; }
+  .room-banner.compact h1 { font-size: 18px; }
+  .room-banner.compact .t { min-width: 0; flex: 1; }
+  .room-banner.compact .acts .btn { padding: 6px 8px; font-size: 13px; }
+  .banner .acts .btn { line-height: 1.2; }
+}

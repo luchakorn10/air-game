@@ -13,9 +13,10 @@
 <body class="admin">
   <header class="topbar admin-top">
     <div class="wrap" style="max-width:none">
-      <a class="brand" href="/admin/"><img class="brand-logo" src="/assets/logo-192.png" alt="AIR"> Admin</a>
+      <button class="menu-btn" id="menuBtn" aria-label="เมนู">☰</button>
+      <a class="brand" href="/admin/"><img class="brand-logo" src="/assets/logo-192.png" alt="AIR"> <span>Admin</span></a>
       <span class="spacer"></span>
-      <a class="link" href="/" target="_blank">หน้าเว็บผู้เรียน ↗</a>
+      <a class="link hide-sm" href="/" target="_blank">หน้าเว็บผู้เรียน ↗</a>
       <a class="link hidden" href="#" id="logout">ออกจากระบบ</a>
     </div>
   </header>
@@ -36,6 +37,7 @@
   <div id="dash" class="shell hidden">
     <aside class="side" id="side">
     </aside>
+    <div class="side-backdrop" id="sideBackdrop"></div>
     <section class="main" id="main"></section>
   </div>
 

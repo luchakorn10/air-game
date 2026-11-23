@@ -21,24 +21,32 @@
   </div>
 
   <script type="module">
+    import { openScanner } from '/js/scanner.js';
     import { api, esc, visual, toast, ask, getMe, setMe, meHeaders, makeClock, fmtSec, LETTERS, imgUrl, lightbox } from '/js/common.js';
 
     const $ = id => document.getElementById(id);
     const code = (new URLSearchParams(location.search).get('c') || '').trim().toUpperCase();
     let D = null, clock = () => null, sel = null, poll = null;
 
+    const scanNext = label => `<button type="button" class="scan-cta" id="scanNext" style="margin-top:14px"><span class="ic">📷</span><span><b>${label}</b><small>เปิดกล้องสแกน QR อันถัดไป</small></span></button>`;
+    function bindNext(label) {
+      const b = $('scanNext');
+      if (b) b.onclick = () => openScanner({ title: label, hint: 'เล็ง QR ให้อยู่ในกรอบ', onCode: c => (location.href = '/q?c=' + encodeURIComponent(c)), onManual: () => askCode() });
+    }
     function askCode(msg = '') {
       $('app').innerHTML = `
         <div class="p-card">
           <h2>🔎 กรอกรหัสจาก QR</h2>
           <p class="sub">ถ้าสแกนไม่ได้ ให้พิมพ์รหัส 6 ตัวที่อยู่ใต้ QR Code</p>
           ${msg ? `<div class="notice bad" style="margin:10px 0"><span class="ico">⚠️</span>${esc(msg)}</div>` : ''}
+          ${scanNext('เปิดกล้องสแกน QR')}
           <form id="f" style="display:flex;gap:10px;margin-top:12px">
             <input class="big-input" type="text" name="c" maxlength="12" placeholder="ABC123" autocomplete="off" value="${esc(code)}" style="text-transform:uppercase;letter-spacing:4px" required>
             <button class="btn gold">เปิด</button>
           </form>
         </div>`;
       $('f').onsubmit = e => { e.preventDefault(); location.href = '/q?c=' + encodeURIComponent(e.target.c.value.trim().toUpperCase()); };
+      bindNext('สแกน QR');
     }
 
     async function load() {
@@ -123,7 +131,9 @@
           <div class="choices" id="ch">${btns}</div>
           ${foot}
         </div>
-        <a class="btn ghost block" style="background:#fff" href="/play?g=${esc(D.game.id)}">📋 ดูความคืบหน้าของกลุ่ม</a>`;
+        ${mine && r.status === 'running' ? scanNext('สแกนคำใบ้ถัดไป') : ''}
+        <a class="btn ghost block" style="background:#fff;margin-top:${mine && r.status === 'running' ? 0 : 0}px" href="/play?g=${esc(D.game.id)}">📋 ดูความคืบหน้าของกลุ่ม</a>`;
+      bindNext('สแกนคำใบ้ถัดไป');
       $('photo')?.addEventListener('click', e => lightbox(e.target.src));
       $('ch').onclick = e => {
         const b = e.target.closest('.choice');
@@ -146,6 +156,7 @@
 
     function renderDelivery() {
       const it = D;
+      setTimeout(() => bindNext('สแกนจุดถัดไป'));
       // เก็บลงสมุดภารกิจในเครื่อง
       try {
         const key = `air_orders_${D.game.id}`;
@@ -163,7 +174,8 @@
           </div>
         </div>
         <div class="notice ok" style="margin-bottom:12px"><span class="ico">📒</span>บันทึกลงสมุดภารกิจในเครื่องนี้แล้ว</div>
-        ${D.group ? `<a class="btn gold lg block" href="/play?g=${esc(D.game.id)}">📒 เปิดสมุดภารกิจ (ดูทุกจุด)</a>` : `<a class="btn gold lg block" href="/join?back=${encodeURIComponent('/play?g=' + D.game.id)}">🎫 เข้ากลุ่มเพื่อเปิดสมุดภารกิจ</a>`}`;
+        ${scanNext('สแกนจุดถัดไป')}
+        ${D.group ? `<a class="btn ghost lg block" style="background:#fff" href="/play?g=${esc(D.game.id)}">📒 เปิดสมุดภารกิจ (ดูทุกจุด)</a>` : `<a class="btn gold lg block" href="/join?back=${encodeURIComponent('/play?g=' + D.game.id)}">🎫 เข้ากลุ่มเพื่อเปิดสมุดภารกิจ</a>`}`;
     }
 
     if (!code) askCode();

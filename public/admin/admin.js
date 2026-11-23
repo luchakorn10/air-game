@@ -73,8 +73,12 @@ function renderSide() {
         <span class="gtxt"><span class="gname">${esc(g.name)}</span><span class="gmode">${g.mode === 'none' ? 'กติกา' : `กติกา + ${g.item_count} รายการ`}</span></span>
       </button>`).join('')}`;
 }
+const setMenu = open => $('dash').classList.toggle('menu-open', open);
+$('menuBtn').onclick = () => setMenu(!$('dash').classList.contains('menu-open'));
+$('sideBackdrop').onclick = () => setMenu(false);
 $('side').onclick = e => {
   const b = e.target.closest('[data-go]'); if (!b) return;
+  setMenu(false);
   const [k, v] = b.dataset.go.split(':');
   if (k === 'rooms') go({});
   if (k === 'room') go({ room: S.room.room.id, view: v });
@@ -161,7 +165,7 @@ async function refreshRoom() { await loadRoom(S.room.room.id); renderSide(); if 
 function renderRoomShell() {
   const { room } = S.room;
   $('main').innerHTML = `
-    <div class="banner room-banner">
+    <div class="banner room-banner ${S.view !== 'overview' ? 'compact' : ''}">
       <div class="big-code"><small>รหัสห้อง</small>${esc(room.code)}</div>
       <div class="t">
         <h1>${esc(room.name)}</h1>
@@ -316,11 +320,11 @@ async function renderSession() {
     <div class="card">
       <h3>${manualOnly ? '🧑‍🏫 ให้คะแนนแต่ละกลุ่ม' : '🏆 คะแนนเกมนี้'} <span class="grow"></span><span class="help">${manualOnly ? 'กด + / − หรือพิมพ์ตัวเลขแล้วกด Enter' : 'คะแนนอัตโนมัติ + โบนัส/หักจากครู'}</span></h3>
       <div class="scroll-x"><table class="t score-t">
-        <tr><th>อันดับ</th><th>กลุ่ม</th>${manualOnly ? '' : `<th>อัตโนมัติ</th><th>${g.mode === 'wildlife' ? 'สถานะ' : 'ตอบ/ผ่าน'}</th><th>เวลา</th>`}<th style="text-align:center">${manualOnly ? 'คะแนน' : 'โบนัส / หัก'}</th><th style="text-align:right">รวม</th><th></th></tr>
+        <tr><th>อันดับ</th><th>กลุ่ม</th>${manualOnly ? '' : `<th class="hide-sm">อัตโนมัติ</th><th class="hide-sm">${g.mode === 'wildlife' ? 'สถานะ' : 'ตอบ/ผ่าน'}</th><th class="hide-sm">เวลา</th>`}<th style="text-align:center">${manualOnly ? 'คะแนน' : 'โบนัส / หัก'}</th><th style="text-align:right">รวม</th><th></th></tr>
         ${d.groups.map(r => `<tr data-gid="${r.group_id}">
           <td class="rk">${rankLabel(r.rank, r.score)}</td>
-          <td><span style="display:flex;align-items:center;gap:8px"><span class="gdot" style="background:${esc(r.color)}"></span><b>${esc(r.name)}</b></span></td>
-          ${manualOnly ? '' : `<td>${r.auto}</td><td>${g.mode === 'wildlife' ? (r.submitted ? '<span class="badge run">ส่งแล้ว</span>' : '<span class="badge idle">ยังไม่ส่ง</span>') : r.answered + (g.mode === 'quiz' ? ' / ' + items.length : '')}${r.wrong && g.mode !== 'delivery' ? ` <small style="color:var(--danger)">ผิด ${r.wrong}</small>` : ''}</td><td>${fmtMs(r.time_ms)}</td>`}
+          <td><span style="display:flex;align-items:center;gap:8px"><span class="gdot" style="background:${esc(r.color)}"></span><b>${esc(r.name)}</b></span>${manualOnly ? '' : `<small class="show-sm">อัตโนมัติ ${r.auto}${g.mode === 'wildlife' ? (r.submitted ? ' · ส่งแล้ว' : ' · ยังไม่ส่ง') : ` · ตอบ ${r.answered}`}</small>`}</td>
+          ${manualOnly ? '' : `<td class="hide-sm">${r.auto}</td><td class="hide-sm">${g.mode === 'wildlife' ? (r.submitted ? '<span class="badge run">ส่งแล้ว</span>' : '<span class="badge idle">ยังไม่ส่ง</span>') : r.answered + (g.mode === 'quiz' ? ' / ' + items.length : '')}${r.wrong && g.mode !== 'delivery' ? ` <small style="color:var(--danger)">ผิด ${r.wrong}</small>` : ''}</td><td class="hide-sm">${fmtMs(r.time_ms)}</td>`}
           <td><div class="stepper ${manualOnly ? 'big' : ''}">
             <button class="btn ghost sm" data-d="-1">−</button>
             <input type="number" value="${r.manual}" data-v>

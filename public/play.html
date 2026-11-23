@@ -21,6 +21,7 @@
   </div>
 
   <script type="module">
+    import { openScanner } from '/js/scanner.js';
     import { api, esc, visual, toast, ask, busy, getMe, setMe, meHeaders, needJoin, makeClock, fmtSec, fmtMs, CAT_LABEL, medal } from '/js/common.js';
 
     const g = new URLSearchParams(location.search).get('g');
@@ -94,6 +95,16 @@
         <input type="text" name="c" maxlength="12" placeholder="สแกนไม่ได้? กรอกรหัสใต้ QR" style="text-transform:uppercase;font-family:Kanit;letter-spacing:2px" required autocomplete="off">
         <button class="btn">เปิด</button></form>`;
     }
+    const scanCta = (title, sub, disabled = false) => `<button type="button" class="scan-cta" id="scanBtn" ${disabled ? 'disabled' : ''}><span class="ic">📷</span><span><b>${title}</b><small>${sub}</small></span></button>`;
+    function bindScan(title) {
+      const b = $('scanBtn');
+      if (b) b.onclick = () => openScanner({
+        title,
+        hint: 'เล็ง QR บนหน้าจอเครื่องที่บังคับโดรนให้อยู่ในกรอบ',
+        onCode: code => (location.href = '/q?c=' + encodeURIComponent(code)),
+        onManual: () => $('codeF')?.c?.focus(),
+      });
+    }
     function bindCode() {
       const f = $('codeF');
       if (f) f.onsubmit = e => { e.preventDefault(); location.href = '/q?c=' + encodeURIComponent(e.target.c.value.trim().toUpperCase()); };
@@ -115,13 +126,14 @@
           : `<div class="notice bad"><span class="ico">🏁</span>หมดเวลาแล้ว!</div>`;
       $('app').innerHTML = `
         ${r.status === 'ended' ? resultCard() : ''}
+        ${r.status === 'running' ? scanCta('สแกนคำใบ้', 'เปิดกล้องในหน้านี้ แล้วเลือกคำตอบได้ทันที') : ''}
         <div class="p-card">
           ${head}
           <h2 style="margin-top:16px">คำใบ้ที่กลุ่มตอบแล้ว ${S.answers.length} / ${S.items.length}</h2>
           <div class="tiles">${tiles}</div>
           ${r.status === 'running' ? codeForm() : ''}
         </div>`;
-      bindCode();
+      bindCode(); bindScan('สแกนคำใบ้');
     }
 
     // ---------------- wildlife ----------------
@@ -222,13 +234,14 @@
       const scanned = S.items.filter(it => orders[it.id]).length;
       $('app').innerHTML = `
         ${r.status === 'ended' ? resultCard() : ''}
+        ${scanCta(`สแกนจุดส่งพัสดุ (${scanned}/${S.items.length})`, 'เปิดกล้องในหน้านี้ แล้วเห็นโจทย์ทันที')}
         <div class="p-card">
           <div class="notice info"><span class="ico">📦</span><div>บินโดรนไปสแกน QR ให้ครบ ${S.items.length} จุด โจทย์จะถูกเก็บไว้ในสมุดภารกิจนี้ แล้วใช้วางแผนเขียน Block Code</div></div>
           <h2 style="margin-top:16px">📒 สมุดภารกิจ (${scanned}/${S.items.length})</h2>
           ${codeForm()}
         </div>
         ${list}`;
-      bindCode();
+      bindCode(); bindScan('สแกนจุดส่งพัสดุ');
     }
 
     if (!g) location.href = '/room';
