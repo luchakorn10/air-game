@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#0b2a6b">
+  <title>เข้าห้องแข่ง · AIR Drone Puzzle Mission</title>
+  <link rel="icon" href="/assets/favicon.png">
+  <link rel="apple-touch-icon" href="/assets/logo-192.png">
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body class="player">
+  <div class="p-wrap">
+    <div class="p-top">
+      <a href="/"><img class="brand-logo" src="/assets/logo-192.png" alt="AIR"></a>
+      <div class="gname">เข้าห้องแข่ง</div>
+    </div>
+    <div id="app"><div class="p-card loading">กำลังโหลด...</div></div>
+  </div>
+
+  <script type="module">
+    import { api, esc, toast, ask, busy, getMe, setMe } from '/js/common.js';
+    const $ = id => document.getElementById(id);
+    const q = new URLSearchParams(location.search);
+    const back = q.get('back') && q.get('back').startsWith('/') ? q.get('back') : '/room';
+
+    function form(code = '', msg = '') {
+      const me = getMe();
+      $('app').innerHTML = `
+        ${me ? `<div class="p-card"><div class="notice info"><span class="ico">👥</span><div>เครื่องนี้อยู่ใน <b>${esc(me.group.name)}</b><br><small>${esc(me.room.name)}</small></div></div>
+          <a class="btn gold lg block" style="margin-top:12px" href="/room">ไปที่กลุ่มของฉัน →</a></div>` : ''}
+        <div class="p-card">
+          <div style="text-align:center;font-size:54px;line-height:1">🎫</div>
+          <h2 style="text-align:center;margin-top:6px">สแกนบัตรกลุ่ม</h2>
+          <p class="sub" style="text-align:center">ใช้กล้องโทรศัพท์สแกน QR บนบัตรกลุ่มที่ครูแจก<br>หรือกรอกรหัสห้องและ PIN ด้านล่าง</p>
+          ${msg ? `<div class="notice bad" style="margin:12px 0"><span class="ico">⚠️</span>${esc(msg)}</div>` : ''}
+          <form id="f" style="margin-top:14px">
+            <label class="f">รหัสห้อง (5 ตัว)</label>
+            <input class="big-input" type="text" name="code" maxlength="5" value="${esc(code)}" placeholder="ABCDE" style="text-transform:uppercase;letter-spacing:6px" required autocomplete="off">
+            <label class="f" style="margin-top:12px">PIN ของกลุ่ม (4 หลัก)</label>
+            <input class="big-input" type="tel" name="pin" maxlength="4" inputmode="numeric" pattern="[0-9]{4}" placeholder="••••" style="letter-spacing:10px" required autocomplete="off">
+            <button class="btn gold lg block" style="margin-top:16px">เข้ากลุ่ม</button>
+          </form>
+        </div>`;
+      $('f').onsubmit = e => { e.preventDefault(); join(e.target.code.value, e.target.pin.value, e.submitter); };
+    }
+
+    async function join(code, pin, btn) {
+      code = String(code).trim().toUpperCase(); pin = String(pin).trim();
+      const me = getMe();
+      try {
+        const res = await busy(btn, () => api('join', { method: 'POST', body: { code, pin } }));
+        if (me && me.token !== res.token) {
+          const ok = await ask({ icon: '🔁', tone: 'warn', title: 'ย้ายกลุ่ม?', message: `เครื่องนี้อยู่ใน "${me.group.name}" อยู่แล้ว\nต้องการย้ายไป "${res.group.name}" (${res.room.name}) หรือไม่?`, ok: 'ย้ายกลุ่ม' });
+          if (!ok) return form();
+        }
+        setMe({ token: res.token, room: res.room, group: res.group });
+        history.replaceState(null, '', '/join');
+        if (!res.group.named) nameStep(res); else done(res);
+      } catch (e) { form(code, e.message); }
+    }
+
+    function nameStep(res) {
+      $('app').innerHTML = `
+        <div class="p-card" style="text-align:center">
+          <div style="font-size:54px;line-height:1">🎉</div>
+          <h2 style="margin-top:6px">ยินดีต้อนรับ ${esc(res.group.name)}!</h2>
+          <p class="sub">${esc(res.room.name)}</p>
+        </div>
+        <div class="p-card">
+          <h2>✏️ ตั้งชื่อกลุ่ม</h2>
+          <p class="sub" style="margin:0">ตกลงกันในกลุ่มก่อนนะ <b>ตั้งได้ครั้งเดียว</b> (ไม่เกิน 24 ตัวอักษร)</p>
+          <form id="nf" style="margin-top:12px">
+            <input class="big-input" type="text" name="name" maxlength="24" placeholder="เช่น เหยี่ยวฟ้า" required autocomplete="off">
+            <button class="btn gold lg block" style="margin-top:12px">บันทึกชื่อกลุ่ม</button>
+          </form>
+          <button class="btn ghost block" id="skip" style="margin-top:8px">ข้ามไปก่อน (ใช้ชื่อ “${esc(res.group.name)}”)</button>
+        </div>`;
+      $('skip').onclick = () => done(res);
+      $('nf').onsubmit = async e => {
+        e.preventDefault();
+        const name = e.target.name.value.trim();
+        if (!(await ask({ icon: '✏️', title: `ใช้ชื่อ “${name}”?`, message: 'ตั้งแล้วเปลี่ยนเองไม่ได้ ถ้าต้องการเปลี่ยนต้องแจ้งครู', ok: 'ยืนยันชื่อนี้', cancel: 'แก้ไข' }))) return;
+        try {
+          const r = await busy(e.submitter, () => api('me/name', { method: 'POST', headers: { 'x-group-token': getMe().token }, body: { name } }));
+          const me = getMe(); me.group.name = r.name; me.group.named = 1; setMe(me);
+          toast('ตั้งชื่อกลุ่มแล้ว!');
+          done(res);
+        } catch (err) { toast(err.message, 'err'); }
+      };
+    }
+
+    function done() { location.href = back; }
+
+    if (q.get('r') && q.get('p')) join(q.get('r'), q.get('p'));
+    else form(q.get('r') || '');
+  </script>
+</body>
+</html>

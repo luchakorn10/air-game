@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#0b2a6b">
+  <title>กลุ่มของฉัน · AIR Drone Puzzle Mission</title>
+  <link rel="icon" href="/assets/favicon.png">
+  <link rel="apple-touch-icon" href="/assets/logo-192.png">
+  <link rel="stylesheet" href="/css/style.css">
+  <style>
+    .gcard { border-radius: 24px; padding: 20px; color: #fff; background: linear-gradient(135deg, var(--gc), #0b2a6b 140%); box-shadow: 0 14px 34px rgba(11,42,107,.3); margin-bottom: 14px; position: relative; overflow: hidden; }
+    .gcard::after { content: ''; position: absolute; right: -40px; top: -40px; width: 160px; height: 160px; border-radius: 50%; background: rgba(255,255,255,.12); }
+    .gcard small { font-family: 'Kanit'; opacity: .85; }
+    .gcard h1 { font-size: 30px; margin: 2px 0 10px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+    .gcard .stats { display: flex; gap: 10px; }
+    .gcard .stats div { background: rgba(255,255,255,.18); border-radius: 16px; padding: 8px 14px; font-family: 'Kanit'; flex: 1; text-align: center; }
+    .gcard .stats b { display: block; font-size: 32px; line-height: 1.1; }
+    .gcard .ren { background: rgba(255,255,255,.22); color: #fff; border: 0; font-size: 13px; padding: 4px 10px; border-radius: 999px; cursor: pointer; font-family: 'Kanit'; }
+    .glist { display: grid; gap: 10px; }
+    .gi { display: flex; align-items: center; gap: 12px; padding: 12px; border-radius: 18px; border: 1.5px solid var(--line); background: #fff; }
+    .gi .n { width: 42px; height: 42px; border-radius: 14px; display: grid; place-items: center; color: #fff; font-family: 'Kanit'; font-weight: 800; flex: none; }
+    .gi .t { flex: 1; min-width: 0; }
+    .gi .t b { font-family: 'Kanit'; color: var(--navy); font-size: 16px; display: block; line-height: 1.25; }
+    .gi .sc { font-family: 'Kanit'; font-weight: 800; font-size: 24px; color: var(--navy); text-align: right; min-width: 52px; }
+    .gi .sc small { display: block; font-size: 11px; font-weight: 500; color: var(--muted); }
+    .lb { width: 100%; border-collapse: separate; border-spacing: 0 6px; font-family: 'Kanit'; }
+    .lb td { background: #f5f7fb; padding: 9px 10px; }
+    .lb td:first-child { border-radius: 12px 0 0 12px; width: 44px; text-align: center; font-weight: 800; }
+    .lb td:last-child { border-radius: 0 12px 12px 0; text-align: right; font-weight: 800; font-size: 18px; color: var(--navy); }
+    .lb tr.me td { background: #fff4d6; }
+    .lb .nm { display: flex; align-items: center; gap: 8px; }
+  </style>
+</head>
+<body class="player">
+  <div class="p-wrap">
+    <div class="p-top">
+      <a href="/"><img class="brand-logo" src="/assets/logo-192.png" alt="AIR"></a>
+      <div class="gname" id="rname">กลุ่มของฉัน</div>
+      <a href="#" id="leave">ออก</a>
+    </div>
+    <div id="app"><div class="p-card loading">กำลังโหลด...</div></div>
+  </div>
+
+  <script type="module">
+    import { api, esc, toast, ask, askText, getMe, setMe, meHeaders, needJoin, statusBadge, medal, rankLabel, MODE_LABEL } from '/js/common.js';
+    const $ = id => document.getElementById(id);
+    let D = null;
+    if (!getMe()) needJoin();
+
+    async function load() {
+      try { D = await api('me', { headers: meHeaders() }); }
+      catch (e) { if (e.status === 401) { setMe(null); return needJoin(); } return; }
+      const me = getMe(); me.group = { ...me.group, name: D.group.name, named: D.group.named }; setMe(me);
+      $('rname').textContent = D.room.name;
+      render();
+    }
+
+    function render() {
+      const g = D.group, m = D.me || { total: 0, rank: '-' };
+      $('app').innerHTML = `
+        <div class="gcard" style="--gc:${esc(g.color)}">
+          <small>${esc(D.room.name)} · กลุ่มที่ ${g.no}</small>
+          <h1>${esc(g.name)} ${g.can_rename ? '<button class="ren" id="ren">✏️ ตั้งชื่อกลุ่ม</button>' : ''}</h1>
+          <div class="stats"><div><b>${m.total}</b>คะแนนรวม</div><div><b>${rankLabel(m.rank, m.total)}</b>อันดับ จาก ${D.board.length}</div></div>
+        </div>
+
+        <div class="p-card">
+          <h2>🎮 เกมในห้องนี้</h2>
+          <div class="glist" style="margin-top:12px">${D.games.map((gm, i) => {
+            const sc = m.scores?.[gm.id];
+            const online = gm.mode !== 'none';
+            return `<div class="gi">
+              <span class="n" style="background:${esc(gm.color)}">${i + 1}</span>
+              <div class="t"><b>${esc(gm.name)}</b><span style="font-size:13px;color:var(--muted)">${statusBadge(gm.session)} ${online ? '' : '· ครูให้คะแนน'}</span>
+                <div style="margin-top:6px;display:flex;gap:6px">
+                  ${online ? `<a class="btn sm ${gm.session?.status === 'running' ? 'gold' : ''}" href="/play?g=${esc(gm.id)}">${gm.session?.status === 'running' ? '▶ เข้าเล่นเลย' : 'เปิดเกม'}</a>` : ''}
+                  <a class="btn ghost sm" href="/game?id=${esc(gm.id)}">กติกา</a>
+                </div>
+              </div>
+              <div class="sc">${sc ? sc.score : 0}${sc?.hidden ? '<small>🔒 ประกาศเมื่อจบ</small>' : '<small>คะแนน</small>'}</div>
+            </div>`;
+          }).join('')}</div>
+        </div>
+
+        <div class="p-card">
+          <h2>🏆 ตารางคะแนนห้อง</h2>
+          <table class="lb" style="margin-top:8px">${D.board.map(b => `
+            <tr class="${b.id === g.id ? 'me' : ''}"><td>${rankLabel(b.rank, b.total)}</td><td><span class="nm"><span class="gdot" style="background:${esc(b.color)}"></span>${esc(b.name)}${b.id === g.id ? ' <small style="color:#b45309">(เรา)</small>' : ''}</span></td><td>${b.total}</td></tr>`).join('')}
+          </table>
+          <p class="sub" style="font-size:13px;margin:6px 0 0">🔒 คะแนนเกมโค-โดรนและสิงห์ป่าจะรวมเมื่อเกมนั้นจบ</p>
+        </div>`;
+      $('ren')?.addEventListener('click', async () => {
+        const name = await askText({ title: 'ตั้งชื่อกลุ่ม', message: 'ตกลงกันในกลุ่มก่อนนะ ตั้งได้ครั้งเดียว', placeholder: 'ชื่อกลุ่ม', ok: 'บันทึก' });
+        if (!name) return;
+        try { await api('me/name', { method: 'POST', headers: meHeaders(), body: { name } }); toast('ตั้งชื่อกลุ่มแล้ว!'); load(); }
+        catch (e) { toast(e.message, 'err'); }
+      });
+    }
+
+    $('leave').onclick = async e => {
+      e.preventDefault();
+      if (await ask({ icon: '🚪', tone: 'danger', title: 'ออกจากกลุ่มบนเครื่องนี้?', message: 'กลับเข้ามาได้ใหม่โดยสแกนบัตรกลุ่มอีกครั้ง', ok: 'ออกจากกลุ่ม' })) { setMe(null); location.href = '/'; }
+    };
+    await load();
+    setInterval(load, 5000);
+  </script>
+</body>
+</html>

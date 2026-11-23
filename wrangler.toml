@@ -1,0 +1,16 @@
+name = "air-game"
+pages_build_output_dir = "./public"
+compatibility_date = "2024-11-01"
+
+# ฐานข้อมูลเกม / คำใบ้ / ปริศนา
+# ฐานข้อมูลจริงบน Cloudflare (local จะจำลองให้อัตโนมัติ)
+[[d1_databases]]
+binding = "DB"
+database_name = "air-puzzle-db"
+database_id = "19c358ef-dcbf-4cf4-9d3b-8fa055ccda1b"
+
+# ที่เก็บรูปที่อัปโหลดจากหน้า Admin
+# KV namespace: air-game-images
+[[kv_namespaces]]
+binding = "IMAGES"
+id = "a89cc1ecd84d4a5fbd096052abf23006"

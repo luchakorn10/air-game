@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>จอคะแนน · AIR Drone Puzzle Mission</title>
+  <link rel="icon" href="/assets/favicon.png">
+  <link rel="stylesheet" href="/css/style.css">
+  <style>
+    .b-table td.sm { font-size: 18px; text-align: center; opacity: .9; }
+    .b-table th { font-family: 'Kanit'; font-weight: 500; font-size: 15px; color: #c7d7ff; padding: 0 12px; text-align: center; }
+    .b-table th:nth-child(2) { text-align: left; }
+    .b-name { display: flex; align-items: center; gap: 12px; }
+    .b-name .gdot { width: 18px; height: 18px; }
+    .b-tabs { display: flex; gap: 8px; flex-wrap: wrap; margin: 14px 0 6px; }
+    .b-tabs a { font-family: 'Kanit'; color: #dbe6ff; text-decoration: none; padding: 6px 14px; border-radius: 999px; background: rgba(255,255,255,.1); font-size: 15px; }
+    .b-tabs a.on { background: var(--yellow); color: var(--navy); font-weight: 600; }
+    .room-code { font-family: 'Kanit'; font-weight: 800; font-size: 64px; letter-spacing: 8px; line-height: 1; margin: 6px 0; color: var(--yellow); }
+  </style>
+</head>
+<body class="board">
+  <div class="b-wrap">
+    <div>
+      <div style="display:flex;gap:18px;align-items:center"><img class="b-logo" src="/assets/logo-192.png" alt=""><div><div class="b-title" id="title">กำลังโหลด...</div><div class="b-round" id="sub"></div></div></div>
+      <div class="b-tabs" id="tabs"></div>
+      <div class="b-clock hidden" id="clock">--:--</div>
+      <div id="list" style="margin-top:14px"></div>
+    </div>
+    <aside class="b-side">
+      <div style="font-family:Kanit;font-size:22px;font-weight:700">🎫 สแกนบัตรกลุ่มเพื่อเข้าเล่น</div>
+      <div style="font-family:Kanit;color:#c7d7ff;margin-top:10px">รหัสห้อง</div>
+      <div class="room-code" id="code">-----</div>
+      <div class="qr" id="qr" style="margin-top:10px"></div>
+      <div class="url" id="url"></div>
+      <button class="btn white sm" style="margin-top:16px" onclick="document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen()">⛶ เต็มจอ</button>
+    </aside>
+  </div>
+
+  <script src="/vendor/qrcode.js"></script>
+  <script type="module">
+    import { api, esc, makeClock, fmtSec, qrSvg, joinUrl, statusBadge, medal, rankLabel } from '/js/common.js';
+    const q = new URLSearchParams(location.search);
+    const code = (q.get('r') || '').toUpperCase();
+    const gid = q.get('g');
+    const $ = id => document.getElementById(id);
+    let B = null, clock = () => null, lastBeep = null;
+
+    $('code').textContent = code;
+    $('qr').innerHTML = qrSvg(joinUrl(code), 6);
+    $('url').textContent = joinUrl(code).replace(/^https?:\/\//, '');
+
+    function beep(f = 880, ms = 200) {
+      try { const c = new AudioContext(), o = c.createOscillator(), gn = c.createGain(); o.frequency.value = f; o.connect(gn); gn.connect(c.destination); gn.gain.value = .3; o.start(); o.stop(c.currentTime + ms / 1000); } catch {}
+    }
+    const row = (rank, g, right, extra = '', sc = 1) => `<tr class="${sc > 0 && rank <= 3 ? 'top' + rank : ''}"><td>${rankLabel(rank, sc)}</td><td><span class="b-name"><span class="gdot" style="background:${esc(g.color)}"></span>${esc(g.name)}</span></td>${extra}<td>${right}</td></tr>`;
+
+    async function load() {
+      try { B = await api(`board/${encodeURIComponent(code)}${gid ? `?g=${encodeURIComponent(gid)}` : ''}`); }
+      catch (e) { $('title').textContent = e.message; return; }
+      $('tabs').innerHTML = `<a href="?r=${esc(code)}" class="${gid ? '' : 'on'}">🏆 คะแนนรวม</a>` + B.games.map(g => `<a href="?r=${esc(code)}&g=${esc(g.id)}" class="${gid === g.id ? 'on' : ''}">${esc(g.name)}${g.session?.status === 'running' ? ' ●' : ''}</a>`).join('');
+      if (!gid) {
+        document.documentElement.style.setProperty('--accent', '#1d4ed8');
+        $('title').textContent = B.room.name;
+        $('sub').innerHTML = `คะแนนรวมทุกเกม · ${B.groups.length} กลุ่ม`;
+        $('clock').classList.add('hidden');
+        $('list').innerHTML = `<table class="b-table"><tr><th></th><th></th>${B.games.map(g => `<th>${esc(g.name)}</th>`).join('')}<th style="text-align:right">รวม</th></tr>
+          ${B.groups.map(g => row(g.rank, g, `<b style="font-size:30px">${g.total}</b>`, B.games.map(gm => `<td class="sm">${g.scores[gm.id]?.hidden ? '🔒' : g.scores[gm.id]?.score ?? 0}</td>`).join(''), g.total)).join('')}</table>`;
+        return;
+      }
+      const G = B.game;
+      document.documentElement.style.setProperty('--accent', G.color);
+      $('title').textContent = G.name;
+      $('sub').innerHTML = `${esc(B.room.name)} ${statusBadge(G.session)}`;
+      $('clock').classList.remove('hidden');
+      clock = makeClock(G.session);
+      const unit = G.mode === 'quiz' || G.mode === 'delivery' ? ` / ${G.total}` : '';
+      $('list').innerHTML = G.hidden
+        ? `<table class="b-table">${B.rows.map((r, i) => `<tr><td>${r.no}</td><td><span class="b-name"><span class="gdot" style="background:${esc(r.color)}"></span>${esc(r.name)}</span></td><td>${G.mode === 'wildlife' ? (r.submitted ? '📨 ส่งรายงานแล้ว' : '🔍 กำลังสำรวจ') : `ตอบแล้ว <b>${r.answered || 0}</b>${unit}`}</td></tr>`).join('')}</table>
+           <div style="font-family:Kanit;color:#c7d7ff;margin-top:8px">🔒 คะแนนจะประกาศเมื่อหมดเวลา</div>`
+        : `<table class="b-table">${B.rows.map(r => row(r.rank, r, `<b style="font-size:30px">${r.score}</b> <small style="opacity:.7">คะแนน</small>`, '', r.score)).join('')}</table>`;
+    }
+    function tick() {
+      const G = B?.game; if (!G) return;
+      const left = clock();
+      const el = $('clock');
+      el.textContent = !G.session || G.session.status === 'waiting' ? fmtSec(G.duration * 60) : fmtSec(left);
+      el.className = 'b-clock' + (left != null && left <= 60 && left > 0 ? ' warn' : '') + (left === 0 ? ' end' : '');
+      if (G.session?.status === 'running' && left != null && left <= 10 && left !== lastBeep) { lastBeep = left; beep(left === 0 ? 440 : 1000, left === 0 ? 1200 : 120); if (left === 0) setTimeout(load, 1500); }
+    }
+    if (!code) $('title').textContent = 'ต้องระบุรหัสห้อง (?r=XXXXX)';
+    else { await load(); setInterval(tick, 250); setInterval(load, 2500); }
+  </script>
+</body>
+</html>

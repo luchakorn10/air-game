@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>AIR Drone Puzzle Mission</title>
+  <link rel="icon" href="/assets/favicon.png">
+  <link rel="apple-touch-icon" href="/assets/logo-192.png">
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="wrap">
+      <a class="brand" href="/"><img class="brand-logo" src="/assets/logo-192.png" alt="AIR"> Drone Puzzle Mission</a>
+      <span class="spacer"></span>
+      <a class="link" href="/join">🎫 เข้าห้องแข่ง</a>
+    </div>
+  </header>
+
+  <section class="hero">
+    <div class="wrap">
+      <img class="hero-logo" src="/assets/logo.png" alt="โลโก้โรงเรียน">
+      <div class="eyebrow">Drone Learning Activities</div>
+      <h1>ภารกิจ<em>โดรน</em>พิชิตปริศนา</h1>
+      <p>สแกน “บัตรกลุ่ม” ที่ครูแจกเพื่อเข้าห้องแข่ง ดูคะแนนของกลุ่ม และเล่นเกมที่ใช้ QR Code ในสนาม</p>
+      <div id="cta" style="margin-top:22px;display:flex;gap:10px;flex-wrap:wrap"></div>
+    </div>
+  </section>
+
+  <main class="wrap">
+    <div id="games" class="grid lift"><div class="loading">กำลังโหลด...</div></div>
+  </main>
+
+  <footer class="site"><img src="/assets/logo-192.png" alt=""><div>โรงเรียนสร้างเสริมทักษะเทคโนโลยีเอไอแอนด์โรโบเทค · อำเภอเมืองชลบุรี จังหวัดชลบุรี</div><div>AIR Drone Puzzle Mission</div></footer>
+
+  <script type="module">
+    import { api, esc, imgUrl, MODE_LABEL, getMe } from '/js/common.js';
+    const me = getMe();
+    document.getElementById('cta').innerHTML = me
+      ? `<a class="btn gold lg" href="/room">👥 ${esc(me.group.name)} · ดูคะแนนกลุ่ม</a><a class="btn white lg" href="/join">🎫 เปลี่ยนกลุ่ม</a>`
+      : `<a class="btn gold lg" href="/join">🎫 เข้าห้องแข่ง (สแกนบัตรกลุ่ม)</a>`;
+    const box = document.getElementById('games');
+    try {
+      const games = await api('games');
+      box.innerHTML = games.map((g, i) => `
+        <div class="game-card" style="--c:${esc(g.color)}">
+          <a class="thumb" href="/game?id=${encodeURIComponent(g.id)}"><img src="${esc(imgUrl(g.image, g.default_image))}" alt="${esc(g.name)}" loading="lazy"></a>
+          <div class="body">
+            <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+              <span class="num-badge">เกมที่ ${i + 1}</span>
+              <span class="mode-pill">${g.mode !== 'none' ? '📱' : '🧑‍🏫'} ${esc(MODE_LABEL[g.mode])}</span>
+            </div>
+            <h3>${esc(g.name)}</h3>
+            <div class="en">${esc(g.name_en)}</div>
+            <div class="tag">${esc(g.tagline)}</div>
+            <div class="chips">
+              <span class="chip gold">⏱ ${g.duration} นาที</span>
+              ${g.team_info ? `<span class="chip">👥 ${esc(g.team_info)}</span>` : ''}
+            </div>
+            <div class="actions">
+              <a class="btn ghost" href="/game?id=${encodeURIComponent(g.id)}">📋 กติกา</a>
+              ${g.mode !== 'none' && me ? `<a class="btn" href="/play?g=${encodeURIComponent(g.id)}">🎮 เข้าเล่น</a>` : ''}
+            </div>
+          </div>
+        </div>`).join('');
+    } catch (e) {
+      box.innerHTML = `<div class="loading">โหลดข้อมูลไม่สำเร็จ: ${esc(e.message)}</div>`;
+    }
+  </script>
+</body>
+</html>

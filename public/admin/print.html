@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex">
+  <title>พิมพ์ · AIR Admin</title>
+  <link rel="stylesheet" href="/css/style.css">
+  <style>
+    body { background: #e5e7eb; }
+    .bar { position: sticky; top: 0; background: var(--navy); color: #fff; padding: 12px 20px; display: flex; gap: 16px; align-items: center; flex-wrap: wrap; z-index: 5; font-family: 'Kanit'; }
+    .bar h1 { font-size: 20px; flex: 1; min-width: 200px; }
+    .bar label { display: inline-flex; gap: 6px; align-items: center; cursor: pointer; font-size: 15px; }
+    .bar select { width: auto; padding: 4px 8px; font-size: 14px; }
+    .tip { max-width: 210mm; margin: 14px auto 0; font-family: 'Kanit'; color: #334155; font-size: 14px; }
+    .sheet { width: 210mm; min-height: 297mm; margin: 14px auto 30px; background: #fff; padding: 8mm; display: flex; flex-wrap: wrap; gap: 5mm; align-content: flex-start; box-shadow: 0 4px 20px rgba(0,0,0,.15); }
+    .pc { border: 1.5px dashed #94a3b8; border-radius: 4mm; padding: 3mm; text-align: center; break-inside: avoid; page-break-inside: avoid; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+    .pc .gname { font-family: 'Kanit'; font-size: 9pt; color: #64748b; }
+    .pc .ttl { font-family: 'Kanit'; font-weight: 700; color: var(--navy); line-height: 1.15; }
+    .pc .code { font-family: 'Kanit'; font-weight: 600; letter-spacing: 2px; }
+    .pc svg { display: block; }
+    .pc .art { display: block; }
+    .notitle .ttl, .nocode .code { display: none; }
+    /* QR sizes */
+    .q-S svg { width: 40mm; height: 40mm; } .q-S .ttl { font-size: 10pt; } .q-S .code { font-size: 9pt; }
+    .q-M svg { width: 75mm; height: 75mm; } .q-M .ttl { font-size: 15pt; } .q-M .code { font-size: 13pt; }
+    .q-L svg { width: 165mm; height: 165mm; } .q-L .ttl { font-size: 26pt; } .q-L .code { font-size: 20pt; }
+    /* animal card sizes */
+    .a-S .art { width: 42mm; height: 42mm; } .a-S .ttl { font-size: 11pt; }
+    .a-M .art { width: 80mm; height: 80mm; } .a-M .ttl { font-size: 17pt; }
+    .a-L .art { width: 170mm; height: 170mm; } .a-L .ttl { font-size: 30pt; }
+    .acard { background: #fff; border: 1.2mm solid #0f172a; border-radius: 5mm; }
+    @media print {
+      @page { size: A4; margin: 0; }
+      body { background: #fff; }
+      .bar, .tip { display: none; }
+      .sheet { margin: 0; box-shadow: none; }
+    }
+  </style>
+</head>
+<body>
+  <div class="bar">
+    <h1 id="h">กำลังโหลด...</h1>
+    <label>ขนาด <select id="size"><option value="item">ตามที่ตั้งไว้ในแต่ละรายการ</option><option value="S">เล็กทั้งหมด</option><option value="M">กลางทั้งหมด</option><option value="L">ใหญ่ทั้งหมด</option></select></label>
+    <label><input type="checkbox" id="showTitle" checked> แสดงชื่อ</label>
+    <label id="codeWrap"><input type="checkbox" id="showCode" checked> แสดงรหัส</label>
+    <label id="fieldWrap" class="hidden"><input type="checkbox" id="onlyField" checked> เฉพาะการ์ดที่อยู่ในสนาม</label>
+    <button class="btn gold sm" onclick="print()">🖨️ พิมพ์</button>
+  </div>
+  <div class="tip" id="tip"></div>
+  <div class="sheet" id="sheet"></div>
+
+  <script src="/vendor/qrcode.js"></script>
+  <script type="module">
+    import { api, esc, qUrl, artFile, imgUrl } from '/js/common.js';
+    const id = new URLSearchParams(location.search).get('game');
+    const $ = x => document.getElementById(x);
+    let g;
+    try { g = await api('admin/games/' + encodeURIComponent(id)); }
+    catch (e) { $('h').textContent = e.status === 401 ? 'กรุณาเข้าสู่ระบบที่ /admin ก่อน' : e.message; throw e; }
+    const wild = g.mode === 'wildlife';
+    $('h').textContent = (wild ? '🐾 การ์ดสัตว์ · ' : '🔳 QR · ') + g.name;
+    if (wild) { $('fieldWrap').classList.remove('hidden'); $('codeWrap').classList.add('hidden'); $('showTitle').checked = false; }
+    if (g.mode === 'quiz') $('size').value = 'M';
+    $('tip').innerHTML = wild
+      ? '💡 การ์ดไม่แสดงชื่อเป็นค่าเริ่มต้น เพื่อให้ผู้เรียนต้องดูภาพจากกล้องโดรนเอง · เล็ก ≈ 4 ซม. / กลาง ≈ 8 ซม. / ใหญ่ ≈ เต็มหน้า A4'
+      : '💡 QR เล็ก ≈ 4 ซม. (ยาก ต้องบินต่ำ) / กลาง ≈ 7.5 ซม. / ใหญ่ ≈ 16.5 ซม. (ง่าย) · ตั้งขนาดแต่ละอันได้ในหน้า Admin';
+
+    function qrRaw(text) {
+      const qr = window.qrcode(0, 'M'); qr.addData(text); qr.make();
+      return qr.createSvgTag({ cellSize: 4, margin: 1, scalable: true });
+    }
+    function draw() {
+      const forced = $('size').value;
+      let items = g.items.filter(i => i.active && (!wild || !$('onlyField').checked || i.on_field));
+      // เรียงใหญ่ → เล็ก ให้จัดหน้ากระดาษได้แน่นขึ้น
+      const order = { L: 0, M: 1, S: 2 };
+      const sz = it => (forced === 'item' ? it.size || 'M' : forced);
+      items = [...items].sort((a, b) => order[sz(a)] - order[sz(b)] || a.sort - b.sort);
+      $('sheet').className = 'sheet' + ($('showTitle').checked ? '' : ' notitle') + ($('showCode').checked ? '' : ' nocode');
+      $('sheet').innerHTML = items.map(it => wild ? `
+        <div class="pc acard a-${sz(it)}">
+          <img class="art" src="${esc(it.image ? imgUrl(it.image) : artFile(it.art || '❓'))}" alt="" style="object-fit:contain">
+          <div class="ttl">${esc(it.title)}</div>
+        </div>` : `
+        <div class="pc q-${sz(it)}">
+          <div class="ttl">${esc(it.title)}</div>
+          ${qrRaw(qUrl(it.code))}
+          <div class="code">${esc(it.code)}</div>
+        </div>`).join('') || '<p>ไม่มีรายการ</p>';
+    }
+    ['size', 'showTitle', 'showCode', 'onlyField'].forEach(x => ($(x).onchange = draw));
+    draw();
+  </script>
+</body>
+</html>

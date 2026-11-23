@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>กติกาเกม · AIR Drone Puzzle Mission</title>
+  <link rel="icon" href="/assets/favicon.png">
+  <link rel="apple-touch-icon" href="/assets/logo-192.png">
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="wrap">
+      <a class="brand" href="/"><img class="brand-logo" src="/assets/logo-192.png" alt="AIR"> Drone Puzzle Mission</a>
+      <span class="spacer"></span>
+      <a class="link" href="/room">👥 กลุ่มของฉัน</a>
+    </div>
+  </header>
+
+  <div id="app"><div class="loading">กำลังโหลด...</div></div>
+
+  <!-- นาฬิกาจับเวลาเต็มจอ -->
+  <div id="timer" class="timer hidden">
+    <button class="btn white sm t-close" id="tClose">✕ ปิด</button>
+    <div class="t-title" id="tTitle"></div>
+    <div class="t-target hidden" id="tTarget">ครอบเลข <b id="tNum">?</b></div>
+    <div class="t-clock" id="tClock">10:00</div>
+    <div class="t-score hidden" id="tScore"></div>
+    <div class="t-ctrl">
+      <button class="btn gold lg" id="tStart">▶ เริ่ม</button>
+      <button class="btn white lg" id="tReset">↺ รีเซ็ต</button>
+      <button class="btn white lg hidden" id="tRoll">🎲 สุ่มเลข</button>
+      <button class="btn white lg" id="tFull">⛶ เต็มจอ</button>
+    </div>
+  </div>
+
+  <footer class="site"><img src="/assets/logo-192.png" alt=""><div>โรงเรียนสร้างเสริมทักษะเทคโนโลยีเอไอแอนด์โรโบเทค · อำเภอเมืองชลบุรี จังหวัดชลบุรี</div><div>AIR Drone Puzzle Mission</div></footer>
+
+    <script type="module">
+    import { api, esc, imgUrl, lines, lightbox } from '/js/common.js';
+
+    const id = new URLSearchParams(location.search).get('id');
+    const app = document.getElementById('app');
+    let game;
+
+    try {
+      game = await api('games/' + encodeURIComponent(id || ''));
+    } catch (e) {
+      app.innerHTML = `<div class="wrap loading">ไม่พบเกมนี้ · <a href="/">กลับหน้าแรก</a></div>`;
+      throw e;
+    }
+    document.title = `${game.name} · AIR Drone Puzzle Mission`;
+    document.documentElement.style.setProperty('--accent', game.color);
+
+    const list = (txt, cls) => lines(txt).length ? `<ul class="${cls}">${lines(txt).map(l => `<li>${esc(l)}</li>`).join('')}</ul>` : '';
+    const steps = lines(game.steps);
+    const img = imgUrl(game.image, game.default_image);
+
+    app.innerHTML = `
+      <section class="game-hero">
+        <div class="wrap">
+          <a class="back" href="/">← เกมทั้งหมด</a>
+          <h1>${esc(game.name)}</h1>
+          <div class="en">${esc(game.name_en)}</div>
+          <p>${esc(game.tagline)}</p>
+          <div class="chips" style="margin-top:16px">
+            <span class="chip gold">⏱ เวลาแข่งขัน ${game.duration} นาที</span>
+            ${game.team_info ? `<span class="chip">👥 ${esc(game.team_info)}</span>` : ''}
+          </div>
+          <div style="margin-top:20px;display:flex;gap:10px;flex-wrap:wrap">
+            ${game.mode !== 'none' ? `<a class="btn gold lg" href="/play?g=${esc(game.id)}">🎮 เข้าเล่น (กลุ่มของฉัน)</a>` : ''}
+            <button class="btn ${game.mode !== 'none' ? 'white' : 'gold'} lg" id="openTimer">⏱ นาฬิกาจับเวลา</button>
+          </div>
+        </div>
+      </section>
+
+      <main class="wrap">
+        <div class="layout">
+          <div>
+            ${game.goal ? `<div class="panel"><h2><span class="ico">🎯</span>เป้าหมาย</h2><div class="goal">${esc(game.goal)}</div></div>` : ''}
+            ${steps.length ? `<div class="panel"><h2><span class="ico">💡</span>วิธีเล่น</h2><ol class="steps">${steps.map(s => `<li>${esc(s)}</li>`).join('')}</ol></div>` : ''}
+            <div class="panel"><h2><span class="ico">📋</span>กติกา</h2>${list(game.rules, 'checklist')}</div>
+          </div>
+          <div>
+            <div class="panel">
+              <h2><span class="ico">🖼️</span>Infographic</h2>
+              <div class="infographic"><img src="${esc(img)}" alt="${esc(game.name)}" data-zoom></div>
+              <p style="color:var(--muted);font-size:14px;margin:8px 0 0">แตะที่ภาพเพื่อขยาย</p>
+            </div>
+            ${game.tips ? `<div class="panel"><h2><span class="ico">⭐</span>เคล็ดลับ / สิ่งที่ได้รับ</h2>${list(game.tips, 'checklist')}</div>` : ''}
+            ${game.win ? `<div class="panel"><h2><span class="ico">🏆</span>เกณฑ์การชนะ</h2><div class="win"><span class="trophy">🏆</span>${esc(game.win)}</div></div>` : ''}
+          </div>
+        </div>
+      </main>`;
+
+    app.addEventListener('click', e => { if (e.target.matches('[data-zoom]')) lightbox(e.target.src); });
+
+    // ---------- timer ----------
+    const $ = s => document.getElementById(s);
+    const total = game.duration * 60;
+    let left = total, running = false, tick = null, endAt = 0, hits = 0;
+    const isCup = game.id === 'cup-ghost';
+    const NUMBERS = ['1','2','3','4','5','6','7','8','9'];
+    $('tTitle').textContent = game.name;
+    if (isCup) { $('tTarget').classList.remove('hidden'); $('tRoll').classList.remove('hidden'); $('tScore').classList.remove('hidden'); }
+
+    const fmt = s => `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`;
+    function draw() {
+      const c = $('tClock');
+      c.textContent = fmt(Math.max(0, left));
+      c.classList.toggle('warn', left <= 60 && left > 0);
+      c.classList.toggle('end', left <= 0);
+      $('tStart').textContent = running ? '⏸ หยุด' : (left < total && left > 0 ? '▶ ต่อ' : '▶ เริ่ม');
+      $('tScore').textContent = `สุ่มไปแล้ว ${hits} ครั้ง`;
+    }
+    function beep(freq = 880, ms = 250) {
+      try {
+        const ctx = new (window.AudioContext || window.webkitAudioContext)();
+        const o = ctx.createOscillator(), g = ctx.createGain();
+        o.frequency.value = freq; o.connect(g); g.connect(ctx.destination);
+        g.gain.setValueAtTime(.3, ctx.currentTime); o.start(); o.stop(ctx.currentTime + ms / 1000);
+      } catch {}
+    }
+    function stop() { running = false; clearInterval(tick); draw(); }
+    $('tStart').onclick = () => {
+      if (running) return stop();
+      if (left <= 0) left = total;
+      running = true; endAt = Date.now() + left * 1000; beep(660);
+      tick = setInterval(() => {
+        const prev = left;
+        left = Math.round((endAt - Date.now()) / 1000);
+        if (left <= 10 && left > 0 && left !== prev) beep(1000, 120);
+        if (left <= 0) { left = 0; stop(); beep(440, 1200); }
+        draw();
+      }, 200);
+      draw();
+    };
+    $('tReset').onclick = () => { stop(); left = total; hits = 0; $('tNum').textContent = '?'; draw(); };
+    $('tRoll').onclick = () => {
+      const cur = $('tNum').textContent;
+      const pool = NUMBERS.filter(n => n !== cur);
+      const n = pool[Math.floor(Math.random() * pool.length)] ?? cur;
+      const el = $('tNum'); el.classList.remove('spin'); void el.offsetWidth; el.classList.add('spin');
+      el.textContent = n; hits++; beep(1200, 150); draw();
+    };
+    $('tFull').onclick = () => document.fullscreenElement ? document.exitFullscreen() : $('timer').requestFullscreen?.();
+    $('openTimer').onclick = () => { $('timer').classList.remove('hidden'); draw(); };
+    $('tClose').onclick = () => { $('timer').classList.add('hidden'); if (document.fullscreenElement) document.exitFullscreen(); };
+    document.addEventListener('keydown', e => {
+      if ($('timer').classList.contains('hidden')) return;
+      if (e.code === 'Space') { e.preventDefault(); $('tStart').click(); }
+      if (e.key === 'Escape') $('tClose').click();
+      if (isCup && e.key.toLowerCase() === 'r') $('tRoll').click();
+    });
+  </script>
+</body>
+</html>

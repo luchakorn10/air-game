@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#0b2a6b">
+  <title>เข้าร่วมแข่ง · AIR Drone Puzzle Mission</title>
+  <link rel="icon" href="/assets/favicon.png">
+  <link rel="apple-touch-icon" href="/assets/logo-192.png">
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body class="player">
+  <div class="p-wrap">
+    <div class="p-top">
+      <a href="/"><img class="brand-logo" src="/assets/logo-192.png" alt="AIR"></a>
+      <div class="gname" id="gname">กำลังโหลด...</div>
+      <a href="/room" id="rulesLink">← กลุ่มของฉัน</a>
+    </div>
+    <div id="status"></div>
+    <div id="app"><div class="p-card loading">กำลังโหลด...</div></div>
+  </div>
+
+  <script type="module">
+    import { api, esc, visual, toast, ask, busy, getMe, setMe, meHeaders, needJoin, makeClock, fmtSec, fmtMs, CAT_LABEL, medal } from '/js/common.js';
+
+    const g = new URLSearchParams(location.search).get('g');
+    const $ = id => document.getElementById(id);
+    const picked = new Set();      // wildlife: ตัวที่เลือก (เก็บไว้ระหว่างรีเฟรช)
+    let S = null, sig = '', clock = () => null;
+
+    const ordersKey = () => `air_orders_${g}`;
+    const getOrders = () => { try { return JSON.parse(localStorage.getItem(ordersKey()) || '{}'); } catch { return {}; } };
+
+    async function load() {
+      try {
+        S = await api('play/' + encodeURIComponent(g), { headers: meHeaders() });
+      } catch (e) {
+        if (e.status === 401) { setMe(null); return needJoin(); }
+        $('gname').textContent = 'ไม่พบเกม';
+        $('app').innerHTML = `<div class="p-card"><div class="notice bad"><span class="ico">⚠️</span>${esc(e.message)}</div><a class="btn block" style="margin-top:14px" href="/">กลับหน้าแรก</a></div>`;
+        return;
+      }
+      document.documentElement.style.setProperty('--accent', S.game.color);
+      $('gname').textContent = S.game.name;
+      $('rulesLink').href = '/room';
+      document.title = `${S.game.name} · เข้าร่วมแข่ง`;
+      clock = makeClock(S.session);
+      const newSig = JSON.stringify([S.session?.id, S.session?.status, S.session?.ends_at, S.group.name, S.group.submitted_at, S.answers, S.result, S.items.length]);
+      if (newSig !== sig) { sig = newSig; render(); }
+      tick();
+    }
+
+    function tick() {
+      const el = $('clk');
+      if (!el || !S) return;
+      const left = clock();
+      el.textContent = !S.session || S.session.status === 'waiting' ? '--:--' : fmtSec(left);
+      el.className = 'clock' + (left != null && left <= 60 && left > 0 ? ' warn' : '') + (left === 0 ? ' end' : '');
+      if (left === 0 && S.session?.status === 'running') { S.session.status = 'ended'; setTimeout(load, 1500); }
+    }
+
+    function statusBar() {
+      const r = S.session;
+      const badge = !r || r.status === 'waiting' ? '<span class="badge wait">รอเริ่ม</span>' : r.status === 'running' ? '<span class="badge run">กำลังแข่ง</span>' : '<span class="badge end">จบแล้ว</span>';
+      return `<div class="status">
+        <span class="gdot" style="background:${esc(S.group.color)};width:14px;height:14px"></span>
+        <div class="team"><small>${esc(S.room.name)}</small><b>${esc(S.group.name)}</b></div>
+        ${badge}<div class="clock" id="clk">--:--</div>
+      </div>`;
+    }
+
+    function render() {
+      $('status').innerHTML = statusBar();
+      if (!S.session) S.session_view = { status: 'waiting' };
+      if (S.game.mode === 'quiz') renderQuiz();
+      else if (S.game.mode === 'wildlife') renderWildlife();
+      else renderDelivery();
+    }
+
+    function resultCard(extra = '') {
+      const res = S.result;
+      if (!res) return '';
+      const medal = ['🥇', '🥈', '🥉'][res.rank - 1] || '🎖️';
+      return `<div class="p-card result-hero">
+        <div class="medal">${medal}</div>
+        <div class="score">${res.score} คะแนน</div>
+        <div class="rank">อันดับ ${medal(res.rank)} จาก ${res.total_groups} กลุ่ม${res.time_ms != null ? ` · เวลา ${fmtMs(res.time_ms)}` : ''}${res.manual ? ` · โบนัสจากครู ${res.manual > 0 ? '+' : ''}${res.manual}` : ''}</div>
+        ${extra}
+      </div>`;
+    }
+
+    function codeForm() {
+      return `<form id="codeF" style="display:flex;gap:8px;margin-top:14px">
+        <input type="text" name="c" maxlength="12" placeholder="สแกนไม่ได้? กรอกรหัสใต้ QR" style="text-transform:uppercase;font-family:Kanit;letter-spacing:2px" required autocomplete="off">
+        <button class="btn">เปิด</button></form>`;
+    }
+    function bindCode() {
+      const f = $('codeF');
+      if (f) f.onsubmit = e => { e.preventDefault(); location.href = '/q?c=' + encodeURIComponent(e.target.c.value.trim().toUpperCase()); };
+    }
+
+    // ---------------- quiz ----------------
+    function renderQuiz() {
+      const r = S.session || { status: 'waiting' };
+      const ans = new Map(S.answers.map(a => [a.item_id, a]));
+      const tiles = S.items.map((it, i) => {
+        const a = ans.get(it.id);
+        const cls = !a ? '' : a.correct === undefined ? 'done' : a.correct ? 'ok' : 'bad';
+        return `<div class="tile ${cls}" title="${esc(it.title)}">${i + 1}</div>`;
+      }).join('');
+      const head = r.status === 'waiting'
+        ? `<div class="notice warn"><span class="ico">⏳</span>รอครูเริ่มเกม… เตรียมโดรนให้พร้อม!</div>`
+        : r.status === 'running'
+          ? `<div class="notice info"><span class="ico">📷</span><div>บินโดรนไปที่ QR คำใบ้ แล้ว<b>ใช้โทรศัพท์เครื่องนี้สแกน</b>จากหน้าจอเครื่องที่บังคับโดรน<br><small>แต่ละคำใบ้ตอบได้ครั้งเดียว</small></div></div>`
+          : `<div class="notice bad"><span class="ico">🏁</span>หมดเวลาแล้ว!</div>`;
+      $('app').innerHTML = `
+        ${r.status === 'ended' ? resultCard() : ''}
+        <div class="p-card">
+          ${head}
+          <h2 style="margin-top:16px">คำใบ้ที่กลุ่มตอบแล้ว ${S.answers.length} / ${S.items.length}</h2>
+          <div class="tiles">${tiles}</div>
+          ${r.status === 'running' ? codeForm() : ''}
+        </div>`;
+      bindCode();
+    }
+
+    // ---------------- wildlife ----------------
+    function renderWildlife() {
+      const r = S.session || { status: 'waiting' };
+      if (r.status === 'waiting') {
+        $('app').innerHTML = `<div class="p-card"><div class="notice warn"><span class="ico">⏳</span>รอครูเริ่มเกม… เมื่อเริ่มแล้วรายการสัตว์จะปรากฏที่นี่</div></div>`;
+        return;
+      }
+      if (r.status === 'ended') return renderWildlifeResult();
+      if (S.group.submitted_at) {
+        const mine = new Set(S.answers.map(a => a.item_id));
+        $('app').innerHTML = `
+          <div class="p-card"><div class="notice ok"><span class="ico">📨</span>ส่งรายงานถึงหัวหน้าอุทยานแล้ว! รอประกาศผลเมื่อหมดเวลา</div></div>
+          <div class="p-card"><h2>สิ่งที่กลุ่มรายงาน (${mine.size})</h2>
+            <div class="pick-grid" style="margin-top:12px">${S.items.filter(i => mine.has(i.id)).map(it => `
+              <div class="pick on"><div class="pic">${visual(it)}</div><div class="nm">${esc(it.title)}</div></div>`).join('') || '<p class="sub">ไม่ได้เลือกรายการใด</p>'}</div>
+          </div>`;
+        return;
+      }
+      $('app').innerHTML = `
+        <div class="p-card">
+          <h2>📋 รายงานการสำรวจ</h2>
+          <p class="sub" style="margin:0">แตะเลือก <b>สัตว์ป่าสงวน</b> และ <b>บุคคลต้องสงสัย</b> ที่โดรนพบในสนาม<br>⚠️ ระวังตัวหลอก! เลือกผิดถูกหักคะแนน</p>
+          <div class="pick-grid" id="grid" style="margin-top:14px">
+            ${S.items.map(it => `
+              <button type="button" class="pick ${picked.has(it.id) ? 'on' : ''}" data-id="${it.id}">
+                <div class="pic">${visual(it)}</div><div class="nm">${esc(it.title)}</div>
+              </button>`).join('')}
+          </div>
+          <div class="sticky-submit">
+            <div class="cnt">เลือกแล้ว <b id="pc">${picked.size}</b> รายการ</div>
+            <button class="btn gold" id="send">📨 ส่งรายงาน</button>
+          </div>
+        </div>`;
+      $('grid').onclick = e => {
+        const b = e.target.closest('.pick');
+        if (!b) return;
+        const id = Number(b.dataset.id);
+        picked.has(id) ? picked.delete(id) : picked.add(id);
+        b.classList.toggle('on', picked.has(id));
+        $('pc').textContent = picked.size;
+      };
+      $('send').onclick = async () => {
+        const ok = await ask(picked.size
+          ? { icon: '📨', title: `ส่งรายงาน ${picked.size} รายการ?`, message: 'ส่งได้ครั้งเดียว ส่งแล้วแก้ไขไม่ได้\nตรวจทานให้ดีก่อนนะ!', ok: 'ส่งรายงาน', cancel: 'ตรวจอีกครั้ง', tone: 'warn' }
+          : { icon: '🤔', title: 'ยังไม่ได้เลือกอะไรเลย', message: 'ต้องการส่งรายงานเปล่าหรือไม่?', ok: 'ส่งรายงานเปล่า', tone: 'danger' });
+        if (!ok) return;
+        await busy($('send'), async () => {
+          try {
+            await api(`play/${g}/submit`, { method: 'POST', headers: meHeaders(), body: { item_ids: [...picked] } });
+            toast('ส่งรายงานแล้ว!');
+            sig = ''; await load();
+          } catch (err) { toast(err.message, 'err'); }
+        });
+      };
+    }
+
+    function renderWildlifeResult() {
+      const mine = new Set(S.answers.map(a => a.item_id));
+      const rv = new Map((S.reveal || []).map(x => [x.id, x]));
+      const cards = S.items.map(it => {
+        const x = rv.get(it.id) || {};
+        const target = x.on_field && (x.category === 'reserved' || x.category === 'suspect');
+        const sel = mine.has(it.id);
+        const res = sel ? (target ? '<span class="res plus">+1</span>' : '<span class="res minus">-1</span>') : (target ? '<span class="res miss">พลาด</span>' : '');
+        return `<div class="pick ${sel ? 'on' : ''}" title="${esc(x.hint || '')}">
+          <div class="pic">${visual(it)}</div><div class="nm">${esc(it.title)}</div>
+          <small style="font-size:11px;color:var(--muted);text-align:center">${esc(CAT_LABEL[x.category] || '')}${x.on_field ? '' : ' · ไม่อยู่ในสนาม'}</small>${res}
+        </div>`;
+      }).join('');
+      $('app').innerHTML = `
+        ${resultCard() || (S.group.submitted_at ? '' : '<div class="p-card"><div class="notice bad"><span class="ico">⌛</span>กลุ่มของคุณส่งรายงานไม่ทันเวลา</div></div>')}
+        <div class="p-card"><h2>🔍 เฉลย</h2><p class="sub" style="margin:0 0 12px">ขอบเขียว = กลุ่มเลือก · +1 ถูก · -1 ผิด · พลาด = มีในสนามแต่ไม่ได้เลือก</p>
+          <div class="pick-grid">${cards}</div>
+        </div>
+        <div class="p-card"><h2>📚 รู้ไหม?</h2>${(S.reveal || []).filter(x => x.hint).map(x => {
+          const it = S.items.find(i => i.id === x.id);
+          return `<p style="margin:6px 0"><b>${esc(it?.title || '')}</b> — ${esc(x.hint)}</p>`;
+        }).join('')}</div>`;
+    }
+
+    // ---------------- delivery ----------------
+    function renderDelivery() {
+      const r = S.session || { status: 'waiting' };
+      const orders = getOrders();
+      const passed = new Set(S.answers.filter(a => a.correct > 0).map(a => a.item_id));
+      const list = S.items.map(it => {
+        const o = orders[it.id];
+        if (!o) return `<div class="order" style="opacity:.6"><div class="order-head"><span class="ic">${visual({ art: '❓' })}</span><b>${esc(it.title)}</b><span>ยังไม่ได้สแกน</span></div></div>`;
+        return `<div class="order ${passed.has(it.id) ? 'passed' : ''}">
+          <div class="order-head"><span class="ic">${visual(o)}</span><b>${esc(o.title)}</b>${passed.has(it.id) ? '<span>✅ ผ่าน</span>' : ''}</div>
+          <div class="order-body">
+            <div class="sec"><small>📍 คำใบ้สถานที่</small><div>${esc(o.hint)}</div></div>
+            <div class="sec mission"><small>🎯 ภารกิจเมื่อไปถึง</small><div>${esc(o.mission)}</div></div>
+          </div></div>`;
+      }).join('');
+      const scanned = S.items.filter(it => orders[it.id]).length;
+      $('app').innerHTML = `
+        ${r.status === 'ended' ? resultCard() : ''}
+        <div class="p-card">
+          <div class="notice info"><span class="ico">📦</span><div>บินโดรนไปสแกน QR ให้ครบ ${S.items.length} จุด โจทย์จะถูกเก็บไว้ในสมุดภารกิจนี้ แล้วใช้วางแผนเขียน Block Code</div></div>
+          <h2 style="margin-top:16px">📒 สมุดภารกิจ (${scanned}/${S.items.length})</h2>
+          ${codeForm()}
+        </div>
+        ${list}`;
+      bindCode();
+    }
+
+    if (!g) location.href = '/room';
+    if (!getMe()) needJoin();
+    await load();
+    setInterval(tick, 500);
+    setInterval(load, 3000);
+  </script>
+</body>
+</html>

@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex">
+  <title>Admin · AIR Drone Puzzle Mission</title>
+  <link rel="icon" href="/assets/favicon.png">
+  <link rel="apple-touch-icon" href="/assets/logo-192.png">
+  <link rel="stylesheet" href="/css/style.css">
+  <link rel="stylesheet" href="/admin/admin.css">
+</head>
+<body class="admin">
+  <header class="topbar admin-top">
+    <div class="wrap" style="max-width:none">
+      <a class="brand" href="/admin/"><img class="brand-logo" src="/assets/logo-192.png" alt="AIR"> Admin</a>
+      <span class="spacer"></span>
+      <a class="link" href="/" target="_blank">หน้าเว็บผู้เรียน ↗</a>
+      <a class="link hidden" href="#" id="logout">ออกจากระบบ</a>
+    </div>
+  </header>
+
+  <div id="login" class="login-wrap hidden">
+    <div class="login-box">
+      <img src="/assets/logo.png" alt="" class="login-logo">
+      <h1>AIR Admin</h1>
+      <p class="login-sub">Drone Puzzle Mission · ระบบจัดการกิจกรรมโดรน</p>
+      <form id="loginForm">
+        <div class="field"><label class="f">รหัสผ่านผู้ดูแล</label><input type="password" name="password" autofocus required placeholder="••••••••"></div>
+        <button class="btn lg" style="width:100%;justify-content:center">เข้าสู่ระบบ →</button>
+      </form>
+      <p class="login-foot">โรงเรียนสร้างเสริมทักษะเทคโนโลยีเอไอแอนด์โรโบเทค</p>
+    </div>
+  </div>
+
+  <div id="dash" class="shell hidden">
+    <aside class="side" id="side">
+    </aside>
+    <section class="main" id="main"></section>
+  </div>
+
+  <dialog id="itemDlg">
+    <form id="itemForm" novalidate>
+      <div class="dh"><h3 id="itemDlgTitle">แก้ไข</h3><button type="button" class="btn ghost sm" data-close>✕</button></div>
+      <div class="db" id="itemBody"></div>
+      <div class="df">
+        <button type="button" class="btn ghost" data-close>ยกเลิก</button>
+        <button type="submit" class="btn">💾 บันทึก</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="qrDlg">
+    <div class="dh"><h3 id="qrTitle">QR Code</h3><button class="btn ghost sm" onclick="this.closest('dialog').close()">✕</button></div>
+    <div class="db qr-big" id="qrBody"></div>
+  </dialog>
+
+  <script src="/vendor/qrcode.js"></script>
+  <script type="module" src="/admin/admin.js"></script>
+</body>
+</html>

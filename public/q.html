@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#0b2a6b">
+  <title>สแกน QR · AIR Drone Puzzle Mission</title>
+  <link rel="icon" href="/assets/favicon.png">
+  <link rel="apple-touch-icon" href="/assets/logo-192.png">
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body class="player">
+  <div class="p-wrap">
+    <div class="p-top">
+      <a href="/"><img class="brand-logo" src="/assets/logo-192.png" alt="AIR"></a>
+      <div class="gname" id="gname">สแกน QR</div>
+      <a href="#" id="hub" class="hidden">← กลับ</a>
+    </div>
+    <div id="status"></div>
+    <div id="app"><div class="p-card loading">กำลังเปิด...</div></div>
+  </div>
+
+  <script type="module">
+    import { api, esc, visual, toast, ask, getMe, setMe, meHeaders, makeClock, fmtSec, LETTERS, imgUrl, lightbox } from '/js/common.js';
+
+    const $ = id => document.getElementById(id);
+    const code = (new URLSearchParams(location.search).get('c') || '').trim().toUpperCase();
+    let D = null, clock = () => null, sel = null, poll = null;
+
+    function askCode(msg = '') {
+      $('app').innerHTML = `
+        <div class="p-card">
+          <h2>🔎 กรอกรหัสจาก QR</h2>
+          <p class="sub">ถ้าสแกนไม่ได้ ให้พิมพ์รหัส 6 ตัวที่อยู่ใต้ QR Code</p>
+          ${msg ? `<div class="notice bad" style="margin:10px 0"><span class="ico">⚠️</span>${esc(msg)}</div>` : ''}
+          <form id="f" style="display:flex;gap:10px;margin-top:12px">
+            <input class="big-input" type="text" name="c" maxlength="12" placeholder="ABC123" autocomplete="off" value="${esc(code)}" style="text-transform:uppercase;letter-spacing:4px" required>
+            <button class="btn gold">เปิด</button>
+          </form>
+        </div>`;
+      $('f').onsubmit = e => { e.preventDefault(); location.href = '/q?c=' + encodeURIComponent(e.target.c.value.trim().toUpperCase()); };
+    }
+
+    async function load() {
+      D = await api('q/' + encodeURIComponent(code), { headers: meHeaders() });
+      if (!D.group && getMe()) setMe(null); // บัตรกลุ่มเดิมถูกยกเลิก
+      document.documentElement.style.setProperty('--accent', D.game.color);
+      $('gname').textContent = D.game.name;
+      $('hub').href = D.group ? '/play?g=' + encodeURIComponent(D.game.id) : '/';
+      $('hub').classList.remove('hidden');
+      clock = makeClock(D.session);
+      render();
+    }
+
+    function statusBar() {
+      const r = D.session;
+      if (!D.group || D.game.mode !== 'quiz') return '';
+      const badge = !r || r.status === 'waiting' ? '<span class="badge wait">รอเริ่ม</span>' : r.status === 'running' ? '<span class="badge run">กำลังแข่ง</span>' : '<span class="badge end">จบแล้ว</span>';
+      return `<div class="status"><span class="gdot" style="background:${esc(D.group.color)};width:14px;height:14px"></span><div class="team"><small>${esc(D.group.room_name)}</small><b>${esc(D.group.name)}</b></div>${badge}<div class="clock" id="clk">--:--</div></div>`;
+    }
+    function tick() {
+      const el = $('clk'); if (!el || !D?.session) return;
+      const left = clock();
+      el.textContent = D.session.status === 'waiting' ? '--:--' : fmtSec(left);
+      el.className = 'clock' + (left != null && left <= 60 && left > 0 ? ' warn' : '');
+    }
+
+    function head(it) {
+      return `
+        ${it.image ? `<div class="clue-photo"><img src="${esc(imgUrl(it.image))}" alt="" id="photo" style="cursor:zoom-in"></div>` : `<div class="clue-art">${visual(it)}</div>`}
+        <div class="q-title">${esc(D.game.item_label)} · ${esc(it.title)}</div>`;
+    }
+
+    function render() {
+      clearInterval(poll); poll = null;
+      $('status').innerHTML = statusBar();
+      if (D.game.mode === 'delivery') return renderDelivery();
+      if (!D.group) return renderJoin();
+      if (D.locked) { waitPoll('รอครูเริ่มเกม… คำใบ้จะเปิดอัตโนมัติเมื่อเริ่ม'); return; }
+      renderQuiz();
+    }
+
+    function waitPoll(msg) {
+      $('app').innerHTML = `<div class="p-card" style="text-align:center">${head(D)}<div class="notice warn" style="margin-top:10px"><span class="ico">⏳</span>${esc(msg)}</div></div>`;
+      poll = setInterval(() => load().catch(() => {}), 3000);
+    }
+
+    function renderJoin() {
+      $('app').innerHTML = `
+        <div class="p-card" style="text-align:center">
+          ${head(D)}
+          <div class="notice warn" style="margin-top:12px;text-align:left"><span class="ico">🎫</span><div>ต้องเข้ากลุ่มก่อนตอบคำใบ้<br><small>สแกนบัตรกลุ่มที่ครูแจกด้วยโทรศัพท์เครื่องนี้</small></div></div>
+          <a class="btn gold lg block" style="margin-top:14px" href="/join?back=${encodeURIComponent(location.pathname + location.search)}">🎫 สแกน / กรอกบัตรกลุ่ม</a>
+        </div>`;
+    }
+
+    function renderQuiz() {
+      const it = D, mine = D.mine, r = D.session || { status: 'waiting' };
+      const canAnswer = !mine && r.status === 'running' && D.group;
+      const btns = it.choices.map((c, i) => {
+        let cls = '';
+        if (mine) {
+          if (mine.answer !== undefined) cls = i === mine.answer ? 'right' : i === mine.choice ? 'wrong' : '';
+          else if (i === mine.choice) cls = 'sel';
+        } else if (sel === i) cls = 'sel';
+        return `<button type="button" class="choice ${cls}" data-i="${i}" ${canAnswer ? '' : 'disabled'}><span class="L">${LETTERS[i] || i + 1}</span><span>${esc(c)}</span></button>`;
+      }).join('');
+      let foot = '';
+      if (mine) {
+        foot = mine.correct === undefined
+          ? `<div class="notice ok" style="margin-top:14px"><span class="ico">✅</span>กลุ่มของคุณตอบข้อนี้แล้ว (ตอบ ${LETTERS[mine.choice]}) — ไปหาคำใบ้ต่อไปเลย!</div>`
+          : mine.correct ? `<div class="notice ok" style="margin-top:14px"><span class="ico">🎉</span>ถูกต้อง!</div>`
+          : `<div class="notice bad" style="margin-top:14px"><span class="ico">❌</span>ยังไม่ถูก — คำตอบคือข้อ ${LETTERS[mine.answer]}</div>`;
+      } else if (r.status === 'ended') {
+        foot = `<div class="notice bad" style="margin-top:14px"><span class="ico">🏁</span>หมดเวลาตอบแล้ว</div>`;
+      } else {
+        foot = `<button class="btn gold lg block" id="send" style="margin-top:14px" ${sel === null ? 'disabled' : ''}>📨 ส่งคำตอบ (ตอบได้ครั้งเดียว)</button>`;
+      }
+      $('app').innerHTML = `
+        <div class="p-card">
+          ${head(it)}
+          <div class="q-text">${esc(it.hint)}</div>
+          <div class="choices" id="ch">${btns}</div>
+          ${foot}
+        </div>
+        <a class="btn ghost block" style="background:#fff" href="/play?g=${esc(D.game.id)}">📋 ดูความคืบหน้าของกลุ่ม</a>`;
+      $('photo')?.addEventListener('click', e => lightbox(e.target.src));
+      $('ch').onclick = e => {
+        const b = e.target.closest('.choice');
+        if (!b || b.disabled) return;
+        sel = Number(b.dataset.i);
+        renderQuiz();
+      };
+      const send = $('send');
+      if (send) send.onclick = async () => {
+        if (sel === null) return;
+        if (!(await ask({ icon: '🎯', title: `ยืนยันคำตอบข้อ ${LETTERS[sel]}?`, message: `“${D.choices[sel]}”\nแต่ละคำใบ้ตอบได้ครั้งเดียว`, ok: 'ส่งคำตอบ', cancel: 'เปลี่ยนใจ', tone: 'warn' }))) return;
+        send.disabled = true;
+        try {
+          await api(`q/${code}/answer`, { method: 'POST', headers: meHeaders(), body: { choice: sel } });
+          toast('ส่งคำตอบแล้ว!');
+          await load();
+        } catch (err) { toast(err.message, true); send.disabled = false; await load().catch(() => {}); }
+      };
+    }
+
+    function renderDelivery() {
+      const it = D;
+      // เก็บลงสมุดภารกิจในเครื่อง
+      try {
+        const key = `air_orders_${D.game.id}`;
+        const o = JSON.parse(localStorage.getItem(key) || '{}');
+        o[it.item_id] = { title: it.title, hint: it.hint, mission: it.mission, art: it.art, image: it.image };
+        localStorage.setItem(key, JSON.stringify(o));
+      } catch {}
+      $('app').innerHTML = `
+        <div class="order" style="box-shadow:var(--shadow)">
+          <div class="order-head"><span class="ic">${visual(it)}</span><b>${esc(it.title)}</b><span>📦 ใบส่งของ</span></div>
+          <div class="order-body" style="padding:18px">
+            ${it.image ? `<div class="clue-photo"><img src="${esc(imgUrl(it.image))}" alt=""></div>` : ''}
+            <div class="sec"><small>📍 คำใบ้สถานที่ส่งพัสดุ</small><div style="font-size:21px">${esc(it.hint)}</div></div>
+            <div class="sec mission"><small>🎯 ภารกิจเมื่อไปถึง</small><div style="font-size:19px">${esc(it.mission)}</div></div>
+          </div>
+        </div>
+        <div class="notice ok" style="margin-bottom:12px"><span class="ico">📒</span>บันทึกลงสมุดภารกิจในเครื่องนี้แล้ว</div>
+        ${D.group ? `<a class="btn gold lg block" href="/play?g=${esc(D.game.id)}">📒 เปิดสมุดภารกิจ (ดูทุกจุด)</a>` : `<a class="btn gold lg block" href="/join?back=${encodeURIComponent('/play?g=' + D.game.id)}">🎫 เข้ากลุ่มเพื่อเปิดสมุดภารกิจ</a>`}`;
+    }
+
+    if (!code) askCode();
+    else {
+      try { await load(); } catch (e) { askCode(e.message); }
+    }
+    setInterval(tick, 500);
+  </script>
+</body>
+</html>

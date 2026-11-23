@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex">
+  <title>บัตรกลุ่ม · AIR Admin</title>
+  <link rel="icon" href="/assets/favicon.png">
+  <link rel="stylesheet" href="/css/style.css">
+  <style>
+    body { background: #e5e7eb; }
+    .bar { position: sticky; top: 0; background: var(--navy); color: #fff; padding: 12px 20px; display: flex; gap: 16px; align-items: center; flex-wrap: wrap; z-index: 5; font-family: 'Kanit'; }
+    .bar h1 { font-size: 20px; flex: 1; }
+    .bar label { display: inline-flex; gap: 6px; align-items: center; cursor: pointer; }
+    .sheet { width: 210mm; margin: 16px auto 30px; background: #fff; padding: 8mm; display: grid; grid-template-columns: 1fr 1fr; gap: 6mm; box-shadow: 0 4px 20px rgba(0,0,0,.15); }
+    .card { border: 2px dashed #94a3b8; border-radius: 6mm; overflow: hidden; break-inside: avoid; page-break-inside: avoid; display: flex; flex-direction: column; height: 88mm; }
+    .card .hd { background: var(--gc); color: #fff; padding: 3mm 4mm; display: flex; align-items: center; gap: 3mm; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .card .hd img { width: 11mm; height: 11mm; border-radius: 50%; background: #fff; }
+    .card .hd .t { flex: 1; min-width: 0; font-family: 'Kanit'; line-height: 1.15; }
+    .card .hd .t small { display: block; font-size: 8pt; opacity: .9; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .card .hd .t b { font-size: 17pt; }
+    .card .hd .no { font-family: 'Kanit'; font-weight: 800; font-size: 26pt; background: rgba(255,255,255,.22); border-radius: 3mm; padding: 0 3mm; }
+    .card .bd { flex: 1; display: flex; gap: 4mm; padding: 3mm 4mm; align-items: center; }
+    .card .qr { width: 46mm; height: 46mm; flex: none; }
+    .card .qr svg { width: 100%; height: 100%; display: block; }
+    .card .info { font-family: 'Kanit'; flex: 1; }
+    .card .info .lbl { font-size: 8pt; color: #64748b; }
+    .card .info .val { font-weight: 800; font-size: 20pt; letter-spacing: 2.5px; color: var(--navy); line-height: 1.1; margin-bottom: 2mm; }
+    .card .info ol { margin: 1mm 0 0; padding-left: 4mm; font-size: 8.5pt; color: #334155; line-height: 1.45; }
+    .card .ft { font-family: 'Kanit'; font-size: 7.5pt; color: #64748b; text-align: center; padding: 0 0 2mm; }
+    @media print {
+      @page { size: A4; margin: 0; }
+      body { background: #fff; }
+      .bar { display: none; }
+      .sheet { margin: 0; box-shadow: none; }
+    }
+  </style>
+</head>
+<body>
+  <div class="bar">
+    <h1 id="h">กำลังโหลด...</h1>
+    <label><input type="checkbox" id="onlyNew"> เฉพาะกลุ่มที่ยังไม่เข้า</label>
+    <button class="btn gold sm" onclick="print()">🖨️ พิมพ์</button>
+  </div>
+  <div class="sheet" id="sheet"></div>
+
+  <script src="/vendor/qrcode.js"></script>
+  <script type="module">
+    import { api, esc, joinUrl } from '/js/common.js';
+    const id = new URLSearchParams(location.search).get('room');
+    const $ = x => document.getElementById(x);
+    let R;
+    try { R = await api('admin/rooms/' + encodeURIComponent(id)); }
+    catch (e) { $('h').textContent = e.status === 401 ? 'กรุณาเข้าสู่ระบบที่ /admin ก่อน' : e.message; throw e; }
+    $('h').textContent = `🎫 บัตรกลุ่ม · ${R.room.name} (${R.groups.length} กลุ่ม)`;
+    const qr = text => { const q = window.qrcode(0, 'M'); q.addData(text); q.make(); return q.createSvgTag({ cellSize: 4, margin: 1, scalable: true }); };
+    function draw() {
+      const groups = [...R.groups].sort((a, b) => a.no - b.no).filter(g => !$('onlyNew').checked || !g.joined);
+      $('sheet').innerHTML = groups.map(g => `
+        <div class="card" style="--gc:${esc(g.color)}">
+          <div class="hd"><img src="/assets/logo-192.png" alt=""><div class="t"><small>${esc(R.room.name)}</small><b>บัตรกลุ่ม</b></div><span class="no">${g.no}</span></div>
+          <div class="bd">
+            <div class="qr">${qr(joinUrl(R.room.code, g.pin))}</div>
+            <div class="info">
+              <div class="lbl">รหัสห้อง</div><div class="val">${esc(R.room.code)}</div>
+              <div class="lbl">PIN กลุ่ม</div><div class="val">${esc(g.pin)}</div>
+              <ol><li>สแกน QR ด้วยกล้องโทรศัพท์</li><li>ตั้งชื่อกลุ่ม (ได้ครั้งเดียว)</li><li>สแกน QR ในสนามด้วยเครื่องเดิม</li></ol>
+            </div>
+          </div>
+          <div class="ft">สแกนไม่ได้? เข้า ${esc(location.host)}/join แล้วกรอกรหัสห้อง + PIN · ห้ามให้กลุ่มอื่นดูบัตร</div>
+        </div>`).join('') || '<p>ไม่มีกลุ่ม</p>';
+    }
+    $('onlyNew').onchange = draw;
+    draw();
+  </script>
+</body>
+</html>
