@@ -22,9 +22,11 @@ async function hmac(secret, msg) {
   const sig = await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(msg));
   return [...new Uint8Array(sig)].map(b => b.toString(16).padStart(2, '0')).join('');
 }
+// ตัดช่องว่าง/ขึ้นบรรทัดใหม่ที่อาจติดมาตอนวางรหัสใน Cloudflare
+const adminPass = env => String(env.ADMIN_PASSWORD || '').trim();
 function secretOf(env) {
-  if (!env.ADMIN_PASSWORD) throw new Error('ยังไม่ได้ตั้งค่า ADMIN_PASSWORD');
-  return 'air-puzzle:' + env.ADMIN_PASSWORD;
+  if (!adminPass(env)) throw new Error('ยังไม่ได้ตั้งค่า ADMIN_PASSWORD');
+  return 'air-puzzle:' + adminPass(env);
 }
 async function makeToken(env) {
   const exp = now() + 12 * 3600 * 1000;
@@ -363,7 +365,8 @@ export async function onRequest({ request, env, params }) {
       const sub = parts.slice(1).join('/');
       if (method === 'POST' && sub === 'login') {
         const { password } = await request.json().catch(() => ({}));
-        if (!password || password !== env.ADMIN_PASSWORD) return err('รหัสผ่านไม่ถูกต้อง', 401);
+        if (!adminPass(env)) return err('ยังไม่ได้ตั้งค่า ADMIN_PASSWORD ใน Cloudflare', 500);
+        if (!password || String(password).trim() !== adminPass(env)) return err('รหัสผ่านไม่ถูกต้อง', 401);
         return json({ ok: true }, 200, { 'set-cookie': cookieHeader(request, await makeToken(env), 12 * 3600) });
       }
       if (method === 'POST' && sub === 'logout') return json({ ok: true }, 200, { 'set-cookie': cookieHeader(request, '', 0) });
