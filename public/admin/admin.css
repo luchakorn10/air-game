@@ -348,3 +348,8 @@ table.t td b { white-space: nowrap; }
 .wl-acts .btn.sm { padding: 5px 9px; }
 .wl-acts .btn:first-child { flex: 1; justify-content: center; }
 .wl.off .wl-acts { opacity: 1; }
+.login-logo { border-radius: 24%; background: transparent; box-shadow: 0 14px 34px rgba(0,0,0,.3); }
+@media (max-width: 860px) {
+  .side { top: calc(60px + env(safe-area-inset-top)); }
+  .side-backdrop { inset: calc(60px + env(safe-area-inset-top)) 0 0 0; }
+}

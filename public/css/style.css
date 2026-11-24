@@ -440,3 +440,16 @@ footer.site img { width: 44px; height: 44px; margin: 0 auto 8px; border-radius: 
 .scan-cta small { font-size: 14px; opacity: .85; }
 .scan-cta:active { transform: scale(.99); }
 .scan-cta:disabled { filter: grayscale(.8); opacity: .6; cursor: default; }
+
+/* =====================================================================
+   v6 — โลโก้ใหม่ + โหมดแอป (Add to Home Screen)
+   ===================================================================== */
+.brand-logo { border-radius: 24%; background: transparent; box-shadow: none; }
+.p-top .brand-logo { width: 40px; height: 40px; }
+.hero-logo { border-radius: 24%; background: transparent; box-shadow: 0 14px 34px rgba(0,0,0,.3); }
+.b-logo { border-radius: 24%; background: transparent; }
+footer.site img { border-radius: 24%; }
+/* เว้นที่ใต้แถบสถานะ (notch) เมื่อเปิดจากไอคอนบนหน้าจอ */
+.topbar { padding-top: env(safe-area-inset-top); }
+.p-top { padding-top: calc(env(safe-area-inset-top) + 16px); }
+body.player .p-wrap, .topbar .wrap { padding-left: max(14px, env(safe-area-inset-left)); padding-right: max(14px, env(safe-area-inset-right)); }

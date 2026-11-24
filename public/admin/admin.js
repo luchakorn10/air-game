@@ -91,7 +91,7 @@ async function renderRooms() {
   const rooms = await api('admin/rooms');
   $('main').innerHTML = `
     <div class="banner">
-      <img src="/assets/logo-192.png" alt="" style="width:76px;height:76px;border-radius:50%;background:#fff;flex:none">
+      <img src="/assets/logo-192.png" alt="" style="width:76px;height:76px;border-radius:24%;flex:none;box-shadow:0 8px 20px rgba(0,0,0,.25)">
       <div class="t"><h1>ห้องแข่งขัน</h1><div class="en">สร้างห้องใหม่ทุกครั้งที่ไปสอน · แต่ละห้องมีกลุ่ม คะแนน และจอคะแนนของตัวเอง</div>
         <div class="meta"><span>${rooms.length} ห้อง</span><span>${rooms.filter(r => r.live).length ? `● กำลังแข่ง ${rooms.filter(r => r.live).length} ห้อง` : 'ไม่มีห้องที่กำลังแข่ง'}</span></div></div>
     </div>
